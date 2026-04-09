@@ -1,9 +1,5 @@
 import { describe, it, expect } from "@jest/globals";
-import {
-  AIMessage,
-  HumanMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { filterHiddenMessages } from "../utils/message/filter-hidden.js";
 import {
   removeFirstHumanMessage,
@@ -21,7 +17,10 @@ describe("filterHiddenMessages", () => {
   it("removes messages with additional_kwargs.hidden: true", () => {
     const messages = [
       new HumanMessage({ content: "visible" }),
-      new HumanMessage({ content: "hidden", additional_kwargs: { hidden: true } }),
+      new HumanMessage({
+        content: "hidden",
+        additional_kwargs: { hidden: true },
+      }),
     ];
     const result = filterHiddenMessages(messages);
     expect(result).toHaveLength(1);
@@ -109,7 +108,10 @@ describe("filterMessagesWithoutContent", () => {
   it("removes hidden messages when filterHidden is true (default)", () => {
     const messages = [
       new HumanMessage({ content: "visible" }),
-      new HumanMessage({ content: "hidden", additional_kwargs: { hidden: true } }),
+      new HumanMessage({
+        content: "hidden",
+        additional_kwargs: { hidden: true },
+      }),
     ];
     const result = filterMessagesWithoutContent(messages);
     expect(result).toHaveLength(1);
@@ -119,7 +121,10 @@ describe("filterMessagesWithoutContent", () => {
   it("keeps hidden messages when filterHidden is false", () => {
     const messages = [
       new HumanMessage({ content: "visible" }),
-      new HumanMessage({ content: "hidden", additional_kwargs: { hidden: true } }),
+      new HumanMessage({
+        content: "hidden",
+        additional_kwargs: { hidden: true },
+      }),
     ];
     const result = filterMessagesWithoutContent(messages, false);
     expect(result).toHaveLength(2);

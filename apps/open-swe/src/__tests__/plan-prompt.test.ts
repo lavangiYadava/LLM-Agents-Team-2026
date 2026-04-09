@@ -40,10 +40,7 @@ describe("formatPlanPrompt", () => {
   });
 
   it("completed items appear in completed_task tags", () => {
-    const plan = [
-      makeItem(0, true, "Done one"),
-      makeItem(1, false, "Current"),
-    ];
+    const plan = [makeItem(0, true, "Done one"), makeItem(1, false, "Current")];
     const result = formatPlanPrompt(plan);
     expect(result).toContain(`<completed_task index="0">`);
     expect(result).toContain("Done one");

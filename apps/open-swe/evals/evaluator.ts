@@ -203,9 +203,10 @@ export async function evaluator(inputs: {
       },
       {
         key: "cache-hit-rate",
-        score: totalInputTokens > 0
-          ? aggregatedTokenData.cacheReadInputTokens / totalInputTokens
-          : 0,
+        score:
+          totalInputTokens > 0
+            ? aggregatedTokenData.cacheReadInputTokens / totalInputTokens
+            : 0,
       },
     ];
   } catch (error) {

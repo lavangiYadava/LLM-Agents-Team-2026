@@ -58,6 +58,10 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
+    "./failure": {
+      "import": "./dist/failure/index.js",
+      "require": "./dist/failure/index.js"
+    },
     "./*": {
       "types": "./dist/*.d.ts",
       "import": "./dist/*.js",

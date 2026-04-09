@@ -36,7 +36,10 @@ describe("truncateOutput", () => {
     const head = "HEAD".repeat(200);
     const tail = "TAIL".repeat(200);
     const input = head + tail;
-    const result = truncateOutput(input, { numStartCharacters: 100, numEndCharacters: 0 });
+    const result = truncateOutput(input, {
+      numStartCharacters: 100,
+      numEndCharacters: 0,
+    });
     expect(result).toContain("[content truncated]");
     // head portion should be present
     expect(result).toContain(input.slice(0, 100));
@@ -46,14 +49,20 @@ describe("truncateOutput", () => {
     const head = "HEAD".repeat(200);
     const tail = "TAIL".repeat(200);
     const input = head + tail;
-    const result = truncateOutput(input, { numStartCharacters: 0, numEndCharacters: 100 });
+    const result = truncateOutput(input, {
+      numStartCharacters: 0,
+      numEndCharacters: 100,
+    });
     expect(result).toContain("[content truncated]");
     expect(result).toContain(input.slice(-100));
   });
 
   it("throws when both numStartCharacters and numEndCharacters are 0", () => {
     expect(() =>
-      truncateOutput("some text", { numStartCharacters: 0, numEndCharacters: 0 }),
+      truncateOutput("some text", {
+        numStartCharacters: 0,
+        numEndCharacters: 0,
+      }),
     ).toThrow();
   });
 
@@ -71,7 +80,10 @@ describe("truncateOutput", () => {
 
   it("uses custom numStartCharacters and numEndCharacters", () => {
     const input = "A".repeat(50) + "B".repeat(50);
-    const result = truncateOutput(input, { numStartCharacters: 10, numEndCharacters: 10 });
+    const result = truncateOutput(input, {
+      numStartCharacters: 10,
+      numEndCharacters: 10,
+    });
     expect(result).toContain("[content truncated]");
     expect(result).toContain("A".repeat(10));
     expect(result).toContain("B".repeat(10));
