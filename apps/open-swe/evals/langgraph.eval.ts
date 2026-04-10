@@ -63,6 +63,60 @@ State Management Issues: Shared state is not being updated correctly across agen
 Routing Logic Failures: Conditional edges and workflow routing are broken`,
     },
   },
+  {
+    inputs: {
+      repo: "Pepps233/open-swe_type_annotations_eval",
+      branch: "main",
+      user_input: `The Python utility module \`utils/math_utils.py\` has several functions that are missing
+type annotations, causing mypy to report errors. The functions \`add\`, \`multiply\`, and
+\`compute_average\` are all missing parameter and return type hints. Please add proper
+type annotations so that mypy passes with no errors. Do not change the function logic.`,
+    },
+  },
+  {
+    inputs: {
+      repo: "Pepps233/open-swe_ruff_violations_eval",
+      branch: "main",
+      user_input: `The file \`src/processor.py\` has several code quality issues that ruff reports as errors.
+There are unused imports at the top of the file (\`os\`, \`sys\`, \`json\`) and a variable
+\`result\` is assigned but never used inside the \`process_data\` function. Please fix all
+ruff violations so that \`ruff check .\` exits with code 0.`,
+    },
+  },
+  {
+    inputs: {
+      repo: "Pepps233/open-swe_multifile_types_eval",
+      branch: "main",
+      user_input: `Our data pipeline has type errors that mypy catches across two files. In
+\`pipeline/loader.py\`, the function \`load_config\` is annotated to return \`dict[str, str]\`
+but can return \`None\` when the file path is empty. In \`pipeline/transformer.py\`, the
+function \`transform\` calls \`load_config()\` and passes the result to \`process_record\`
+which expects \`dict[str, str]\`, but there is no None guard. Fix the type errors so mypy
+reports no errors or warnings. You may update type signatures and add None checks as
+needed, but do not change the overall program logic.`,
+    },
+  },
+  {
+    inputs: {
+      repo: "Pepps233/open-swe_stub_impl_eval",
+      branch: "main",
+      user_input: `The module \`services/validator.py\` has two functions that are currently stubs and raise
+NotImplementedError: \`validate_email(email: str) -> bool\` and \`validate_phone(phone: str)
+-> bool\`. The file \`tests/test_validator.py\` documents the expected behavior with
+examples. Please implement both functions using only the Python standard library so the
+code passes both ruff and mypy checks cleanly.`,
+    },
+  },
+  {
+    inputs: {
+      repo: "Pepps233/open-swe_dataclass_eval",
+      branch: "main",
+      user_input: `The file \`models/event.py\` defines a Python dataclass \`Event\` that has several issues:
+(1) The \`__post_init__\` method references \`self.timestamp\` but the field is named
+\`created_at\`. (2) The subclass \`TimedEvent\` inherits from \`object\` instead of \`Event\`,
+so it is missing the parent fields. Fix all issues so that ruff and mypy both pass cleanly.`,
+    },
+  },
 ];
 
 logger.info(`Starting evals over ${DATASET.length} examples...`);
@@ -212,12 +266,16 @@ ls.describe(DATASET_NAME, () => {
         branchName: branchName,
       });
 
+      // Aggregate tokenData from programmer state
+      const tokenData = programmerState?.tokenData ?? [];
+
       // Evaluation
       const wrappedEvaluator = ls.wrapEvaluator(evaluator);
       const evalResult = await wrappedEvaluator({
         openSWEInputs: inputs,
         output: {
           branchName,
+          tokenData,
           targetRepository: {
             owner: inputs.repo.split("/")[0],
             repo: inputs.repo.split("/")[1],

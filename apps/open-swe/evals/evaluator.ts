@@ -4,7 +4,12 @@ import { Daytona, Sandbox } from "@daytonaio/sdk";
 import { createLogger, LogLevel } from "../src/utils/logger.js";
 import { TIMEOUT_SEC } from "@openswe/shared/constants";
 import { DEFAULT_SANDBOX_CREATE_PARAMS } from "../src/constants.js";
-import { TargetRepository } from "@openswe/shared/open-swe/types";
+// ModelTokenData is the type for a single model's token usage record (input tokens, output tokens, cache read tokens, cache write tokens, & the model name)
+import {
+  ModelTokenData,
+  TargetRepository,
+} from "@openswe/shared/open-swe/types";
+import { calculateCostSavings } from "@openswe/shared/caching";
 import { cloneRepo } from "../src/utils/github/git.js";
 import { getRepoAbsolutePath } from "@openswe/shared/git";
 import { SimpleEvaluationResult } from "langsmith/vitest";
@@ -91,10 +96,37 @@ export async function evaluator(inputs: {
   openSWEInputs: OpenSWEInput;
   output: {
     branchName: string;
+    // tokenData represents an array of per-model token usage records accumulated across all graph nodes
+    tokenData: ModelTokenData[];
     targetRepository: TargetRepository;
   };
 }): Promise<SimpleEvaluationResult[]> {
   const { openSWEInputs, output } = inputs;
+
+  // aggregate all token entries into a single CacheMetrics object
+  const aggregatedTokenData = output.tokenData.reduce(
+    (acc, entry) => ({
+      cacheCreationInputTokens:
+        acc.cacheCreationInputTokens + entry.cacheCreationInputTokens,
+      cacheReadInputTokens:
+        acc.cacheReadInputTokens + entry.cacheReadInputTokens,
+      inputTokens: acc.inputTokens + entry.inputTokens,
+      outputTokens: acc.outputTokens + entry.outputTokens,
+    }),
+    {
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+  );
+  const {
+    totalCost,
+    totalTokens,
+    totalInputTokens,
+    totalOutputTokensCost,
+    totalSavings,
+  } = calculateCostSavings(aggregatedTokenData);
 
   const githubToken = process.env.GITHUB_PAT;
   if (!githubToken) {
@@ -156,6 +188,24 @@ export async function evaluator(inputs: {
       {
         key: "mypy-score",
         score: analysisResult.mypyScore,
+      },
+      {
+        key: "total-cost-usd",
+        score: totalCost + totalOutputTokensCost,
+      },
+      {
+        key: "total-tokens",
+        score: totalTokens,
+      },
+      {
+        key: "cache-savings-usd",
+        score: totalSavings,
+      },
+      {
+        key: "cache-hit-rate",
+        score: totalInputTokens > 0
+          ? aggregatedTokenData.cacheReadInputTokens / totalInputTokens
+          : 0,
       },
     ];
   } catch (error) {
