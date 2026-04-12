@@ -47,6 +47,10 @@ import {
   createReplyToReviewTool,
   shouldIncludeReviewCommentTool,
 } from "../../../tools/reply-to-review-comment.js";
+import {
+  getOrInitBudgetState,
+  recordToolCalls,
+} from "../../../utils/budget-tracker.js";
 
 const logger = createLogger(LogLevel.INFO, "TakeAction");
 
@@ -322,6 +326,11 @@ export async function takeAction(
       dependenciesInstalled: dependenciesInstalledUpdate,
     }),
     ...allStateUpdates,
+    budgetState: recordToolCalls(
+      getOrInitBudgetState(state.budgetState, config),
+      toolCallResults.length,
+      "take-action",
+    ),
   };
   return new Command({
     goto: shouldRouteDiagnoseNode ? "diagnose-error" : "generate-action",

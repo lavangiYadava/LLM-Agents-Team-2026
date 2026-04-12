@@ -39,6 +39,10 @@ import { filterHiddenMessages } from "../../../utils/message/filter-hidden.js";
 import { DO_NOT_RENDER_ID_PREFIX } from "@openswe/shared/constants";
 import { processToolCallContent } from "../../../utils/tool-output-processing.js";
 import { createViewTool } from "../../../tools/builtin-tools/view.js";
+import {
+  getOrInitBudgetState,
+  recordToolCalls,
+} from "../../../utils/budget-tracker.js";
 
 const logger = createLogger(LogLevel.INFO, "TakeAction");
 
@@ -245,6 +249,11 @@ export async function takeActions(
     ...(codebaseTree && { codebaseTree }),
     ...(dependenciesInstalled !== null && { dependenciesInstalled }),
     ...allStateUpdates,
+    budgetState: recordToolCalls(
+      getOrInitBudgetState(state.budgetState, config),
+      toolCallResults.length,
+      "planner-take-action",
+    ),
   };
 
   const maxContextActions = config.configurable?.maxContextActions ?? 75;

@@ -42,6 +42,11 @@ import {
 import { createScratchpadTool } from "../../../../tools/scratchpad.js";
 import { createViewTool } from "../../../../tools/builtin-tools/view.js";
 import { BindToolsInput } from "@langchain/core/language_models/chat_models";
+import {
+  getOrInitBudgetState,
+  recordTokenUsage,
+  recordAction,
+} from "../../../../utils/budget-tracker.js";
 
 const logger = createLogger(LogLevel.INFO, "GenerateReviewActionsNode");
 
@@ -248,9 +253,18 @@ export async function generateReviewActions(
     })),
   });
 
+  let budgetState = getOrInitBudgetState(state.budgetState, config);
+  budgetState = recordAction(budgetState, "reviewer-generate-actions");
+  budgetState = recordTokenUsage(
+    budgetState,
+    response,
+    "reviewer-generate-actions",
+  );
+
   return {
     messages: [response],
     reviewerMessages: [response],
     tokenData: trackCachePerformance(response, modelName),
+    budgetState,
   };
 }

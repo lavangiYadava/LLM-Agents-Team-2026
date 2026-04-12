@@ -277,6 +277,8 @@ These are notes you took while gathering context for the plan:
     </codebase_tree>
 </codebase_structure>
 
+{BUDGET_AWARENESS_PROMPT}
+
 </context>
 `;
 

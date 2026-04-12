@@ -10,6 +10,8 @@ import {
 } from "../types.js";
 import { withLangGraph } from "@langchain/langgraph/zod";
 import { tokenDataReducer } from "../../caching.js";
+import { BudgetState } from "../budget-types.js";
+import { budgetStateReducer } from "../budget-enforcement.js";
 
 export const PlannerGraphStateObj = MessagesZodState.extend({
   sandboxSessionId: withLangGraph(z.string(), {
@@ -107,6 +109,19 @@ export const PlannerGraphStateObj = MessagesZodState.extend({
     reducer: {
       schema: z.custom<ModelTokenData[]>().optional(),
       fn: tokenDataReducer,
+    },
+  }),
+  budgetState: withLangGraph(z.custom<BudgetState>().optional(), {
+    reducer: {
+      schema: z.custom<BudgetState>().optional(),
+      fn: (
+        state: BudgetState | undefined,
+        update: BudgetState | undefined,
+      ) => {
+        if (!update) return state;
+        if (!state) return update;
+        return budgetStateReducer(state, update);
+      },
     },
   }),
 });

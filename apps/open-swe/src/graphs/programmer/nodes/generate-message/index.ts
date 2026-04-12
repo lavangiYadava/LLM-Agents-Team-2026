@@ -68,13 +68,23 @@ import {
   createReplyToReviewTool,
 } from "../../../../tools/reply-to-review-comment.js";
 import { shouldUseCustomFramework } from "../../../../utils/should-use-custom-framework.js";
+import { formatBudgetPromptInjection } from "@openswe/shared/open-swe/budget-enforcement";
+import {
+  getOrInitBudgetState,
+  recordTokenUsage,
+  recordAction,
+} from "../../../../utils/budget-tracker.js";
 
 const logger = createLogger(LogLevel.INFO, "GenerateMessageNode");
 
-const formatDynamicContextPrompt = (state: GraphState) => {
+const formatDynamicContextPrompt = (state: GraphState, config: GraphConfig) => {
   const planString = getActivePlanItems(state.taskPlan)
     .map((i) => `<plan-item index="${i.index}">\n${i.plan}\n</plan-item>`)
     .join("\n");
+
+  const budgetState = getOrInitBudgetState(state.budgetState, config);
+  const budgetPrompt = formatBudgetPromptInjection(budgetState);
+
   return DYNAMIC_SYSTEM_PROMPT.replaceAll("{PLAN_PROMPT}", planString)
     .replaceAll(
       "{PLAN_GENERATION_NOTES}",
@@ -90,7 +100,8 @@ const formatDynamicContextPrompt = (state: GraphState) => {
     .replaceAll(
       "{CODEBASE_TREE}",
       state.codebaseTree || "No codebase tree generated yet.",
-    );
+    )
+    .replaceAll("{BUDGET_AWARENESS_PROMPT}", budgetPrompt);
 };
 
 const formatStaticInstructionsPrompt = (
@@ -123,7 +134,6 @@ const formatCacheablePrompt = (
   const codeReview = getCodeReviewFields(state.internalMessages);
 
   const segments: CacheablePromptSegment[] = [
-    // Cache Breakpoint 2: Static Instructions
     {
       type: "text",
       text: formatStaticInstructionsPrompt(
@@ -136,10 +146,9 @@ const formatCacheablePrompt = (
         : {}),
     },
 
-    // Cache Breakpoint 3: Dynamic Context
     {
       type: "text",
-      text: formatDynamicContextPrompt(state),
+      text: formatDynamicContextPrompt(state, config),
     },
   ];
 
@@ -220,7 +229,7 @@ async function createToolsAndPrompt(
   const anthropicModelTools = [
     ...sharedTools,
     {
-      type: "text_editor_20250429",
+      type: "text_editor_20250728",
       name: "str_replace_based_edit_tool",
       cache_control: { type: "ephemeral" },
     },
@@ -382,6 +391,10 @@ export async function generateAction(
     })) || []),
   });
 
+  let budgetState = getOrInitBudgetState(state.budgetState, config);
+  budgetState = recordAction(budgetState, "generate-action");
+  budgetState = recordTokenUsage(budgetState, response, "generate-action");
+
   const newMessagesList = [...missingMessages, response];
   return {
     messages: newMessagesList,
@@ -389,5 +402,6 @@ export async function generateAction(
     ...(newSandboxSessionId && { sandboxSessionId: newSandboxSessionId }),
     ...(latestTaskPlan && { taskPlan: latestTaskPlan }),
     tokenData: trackCachePerformance(response, modelName),
+    budgetState,
   };
 }

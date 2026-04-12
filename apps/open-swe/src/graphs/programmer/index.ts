@@ -22,6 +22,10 @@ import { graph as reviewerGraph } from "../reviewer/index.js";
 import { getRemainingPlanItems } from "../../utils/current-task.js";
 import { getActivePlanItems } from "@openswe/shared/open-swe/tasks";
 import { createMarkTaskCompletedToolFields } from "@openswe/shared/open-swe/tools";
+import {
+  shouldTerminate,
+  shouldDegrade,
+} from "../../utils/budget-tracker.js";
 
 function lastMessagesMissingToolCalls(
   messages: BaseMessage[],
@@ -53,6 +57,17 @@ function routeGeneratedAction(
   | "handle-completed-task"
   | Send {
   const { internalMessages } = state;
+
+  if (state.budgetState) {
+    const termination = shouldTerminate(state.budgetState);
+    if (termination.terminate) {
+      return "route-to-review-or-conclusion";
+    }
+    if (shouldDegrade(state.budgetState)) {
+      return "route-to-review-or-conclusion";
+    }
+  }
+
   const lastMessage = internalMessages[internalMessages.length - 1];
 
   // If the message is an AI message, and it has tool calls, we should take action.

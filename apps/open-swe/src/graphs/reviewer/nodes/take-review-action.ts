@@ -35,6 +35,10 @@ import { createPullRequestToolCallMessage } from "../../../utils/message/create-
 import { createViewTool } from "../../../tools/builtin-tools/view.js";
 import { filterUnsafeCommands } from "../../../utils/command-evaluation.js";
 import { getRepoAbsolutePath } from "@openswe/shared/git";
+import {
+  getOrInitBudgetState,
+  recordToolCalls,
+} from "../../../utils/budget-tracker.js";
 
 const logger = createLogger(LogLevel.INFO, "TakeReviewAction");
 
@@ -253,6 +257,11 @@ export async function takeReviewerActions(
     ...(dependenciesInstalledUpdate !== null && {
       dependenciesInstalled: dependenciesInstalledUpdate,
     }),
+    budgetState: recordToolCalls(
+      getOrInitBudgetState(state.budgetState, config),
+      toolCallResults.length,
+      "reviewer-take-action",
+    ),
   };
 
   const maxReviewActions = config.configurable?.maxReviewActions ?? 30;
