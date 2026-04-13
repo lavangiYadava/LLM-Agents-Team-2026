@@ -22,6 +22,60 @@ import { graph as reviewerGraph } from "../reviewer/index.js";
 import { getRemainingPlanItems } from "../../utils/current-task.js";
 import { getActivePlanItems } from "@openswe/shared/open-swe/tasks";
 import { createMarkTaskCompletedToolFields } from "@openswe/shared/open-swe/tools";
+import { TelemetryCollector } from "@openswe/shared/telemetry";
+import type { NodeName, NodeRecord } from "@openswe/shared/telemetry";
+import { createLogger, LogLevel } from "../../utils/logger.js";
+
+const telemetryLogger = createLogger(LogLevel.INFO, "telemetry");
+const collectors = new Map<string, TelemetryCollector>();
+
+function timed(
+  nodeId: NodeName,
+  fn: (state: any, config: GraphConfig) => Promise<any> | any,
+): typeof fn {
+  return (async (state, config) => {
+    const threadId =
+      (config as GraphConfig)?.configurable?.thread_id ?? crypto.randomUUID();
+
+    if (!collectors.has(threadId)) {
+      collectors.set(threadId, new TelemetryCollector(threadId));
+    }
+    const collector = collectors.get(threadId)!;
+
+    const start = Date.now();
+    const result = await fn(state, config);
+    const wallClockMs = Date.now() - start;
+
+    const messages: any[] = (result as any).messages ?? [];
+    const lastAI = [...messages]
+      .reverse()
+      .find((m: any) => m._getType?.() === "ai");
+    const toolMessages = messages.filter((m: any) => m._getType?.() === "tool");
+
+    const entry: NodeRecord = {
+      runId: threadId,
+      node: nodeId,
+      step: collector.recordCount(),
+      wallClockMs,
+      inputTokens: lastAI?.usage_metadata?.input_tokens ?? 0,
+      outputTokens: lastAI?.usage_metadata?.output_tokens ?? 0,
+      toolEvents: toolMessages.map((m: any) => ({
+        toolName: m.name ?? m.tool_call_id ?? "unknown",
+        success:
+          typeof m.content === "string" ? !m.content.startsWith("Error") : true,
+      })),
+      outputSnapshot:
+        typeof lastAI?.content === "string" ? lastAI.content.slice(0, 200) : "",
+      modelId: (config as any)?.metadata?.ls_model_name ?? "unknown",
+      modelTier: undefined,
+    };
+
+    collector.record(entry);
+    telemetryLogger.info("node_complete", entry);
+
+    return result;
+  }) as typeof fn;
+}
 
 function lastMessagesMissingToolCalls(
   messages: BaseMessage[],
@@ -128,32 +182,46 @@ function routeToReviewOrConclusion(
 }
 
 const workflow = new StateGraph(GraphAnnotation, GraphConfiguration)
-  .addNode("initialize", initializeSandbox)
-  .addNode("generate-action", generateAction)
-  .addNode("take-action", takeAction, {
+  .addNode("initialize", timed("initialize" as NodeName, initializeSandbox))
+  .addNode(
+    "generate-action",
+    timed("generate-action" as NodeName, generateAction),
+  )
+  .addNode("take-action", timed("take-action" as NodeName, takeAction), {
     ends: ["generate-action", "diagnose-error"],
   })
-  .addNode("update-plan", updatePlan)
-  .addNode("handle-completed-task", handleCompletedTask, {
-    ends: [
-      "summarize-history",
-      "generate-action",
-      "route-to-review-or-conclusion",
-    ],
-  })
-  .addNode("generate-conclusion", generateConclusion, {
-    ends: ["open-pr", END],
-  })
-  .addNode("request-help", requestHelp, {
+  .addNode("update-plan", timed("update-plan" as NodeName, updatePlan))
+  .addNode(
+    "handle-completed-task",
+    timed("handle-completed-task" as NodeName, handleCompletedTask),
+    {
+      ends: [
+        "summarize-history",
+        "generate-action",
+        "route-to-review-or-conclusion",
+      ],
+    },
+  )
+  .addNode(
+    "generate-conclusion",
+    timed("generate-conclusion" as NodeName, generateConclusion),
+    {
+      ends: ["open-pr", END],
+    },
+  )
+  .addNode("request-help", timed("request-help" as NodeName, requestHelp), {
     ends: ["generate-action", END],
   })
   .addNode("route-to-review-or-conclusion", routeToReviewOrConclusion, {
     ends: ["generate-conclusion", "reviewer-subgraph"],
   })
   .addNode("reviewer-subgraph", reviewerGraph)
-  .addNode("open-pr", openPullRequest)
-  .addNode("diagnose-error", diagnoseError)
-  .addNode("summarize-history", summarizeHistory)
+  .addNode("open-pr", timed("open-pr" as NodeName, openPullRequest))
+  .addNode("diagnose-error", timed("diagnose-error" as NodeName, diagnoseError))
+  .addNode(
+    "summarize-history",
+    timed("summarize-history" as NodeName, summarizeHistory),
+  )
   .addEdge(START, "initialize")
   .addEdge("initialize", "generate-action")
   .addConditionalEdges("generate-action", routeGeneratedAction, [
