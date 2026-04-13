@@ -60,7 +60,9 @@ describe("timed()", () => {
 
     it("returns the result from the underlying function unchanged", async () => {
       const result = { messages: [makeAIMessage()], extra: "value" };
-      const nodeFn = jest.fn<() => Promise<typeof result>>().mockResolvedValue(result);
+      const nodeFn = jest
+        .fn<() => Promise<typeof result>>()
+        .mockResolvedValue(result);
       const wrapped = timed("planner", nodeFn as any);
 
       const wrappedResult = await wrapped(
@@ -363,9 +365,8 @@ describe("timed()", () => {
       expect(uuidSpy).toHaveBeenCalledTimes(1);
       expect(collectors.has("123e4567-e89b-12d3-a456-426614174000")).toBe(true);
       expect(
-        collectors
-          .get("123e4567-e89b-12d3-a456-426614174000")
-          ?.summarize().runId,
+        collectors.get("123e4567-e89b-12d3-a456-426614174000")?.summarize()
+          .runId,
       ).toBe("123e4567-e89b-12d3-a456-426614174000");
     });
 
