@@ -23,20 +23,29 @@ This is a Yarn workspace monorepo with Turbo build orchestration containing thes
 - Contains additional runtime and tools folders used by the agent:
   - `apps/open-swe/src/runtime` — runtime helpers, budget and failure handling, checkpoint logic and failure policies (see `runtime/failure/policies`).
   - `apps/open-swe/src/tools` — built-in agent tools (examples: `apply-patch.ts`, `shell.ts`, `grep.ts`, `search-documents-for`). These are the canonical implementations for tool integrations used by the graphs.
-- The LangGraph HTTP app entry is `apps/open-swe/src/routes/app.ts`. `langgraph.json` also exposes configurable HTTP headers used by routes (examples: `x-github-pat`, `x-local-mode`, `x-github-installation-token`) — these are declared in the root `langgraph.json` under `http.configurable_headers.include`.
+- The LangGraph HTTP app entry is `apps/open-swe/src/routes/app.ts`; GitHub webhook dispatch lives in `apps/open-swe/src/routes/github/unified-webhook.ts`, and auth is handled in `apps/open-swe/src/security/auth.ts`.
+- `langgraph.json` also exposes configurable HTTP headers used by routes (examples: `x-github-pat`, `x-local-mode`, `x-github-installation-token`) — these are declared in the root `langgraph.json` under `http.configurable_headers.include`.
+- Shared constants such as `@openswe/shared/constants` provide the header names used throughout the app (`GITHUB_PAT`, `LOCAL_MODE_HEADER`, `GITHUB_INSTALLATION_TOKEN_COOKIE`, `GITHUB_INSTALLATION_ID`).
+- `apps/open-swe/src/graphs/reviewer` contains the reviewer subgraph used by the programmer flow after code changes need review.
 
 **apps/open-swe-v2**: LangGraph agent V2 application
-- Alternative agent implementation with its own package and test tooling
-- Has its own `langgraph.json` (`apps/open-swe-v2/langgraph.json`) with a single `coding` graph (entry: `./src/agent.ts:agent`) and a dependency on the monorepo root.
+- Alternative agent implementation built around `deepagents.createDeepAgent`
+- Has its own `langgraph.json` (`apps/open-swe-v2/langgraph.json`) with a single `coding` graph (entry: `./src/agent.ts:agent`) and a dependency on the monorepo root
+- The agent is assembled from `apps/open-swe-v2/src/agent.ts`, `src/subagents.ts`, `src/tools.ts`, `src/state.ts`, and `src/post-model-hook.ts`.
 
 **apps/web**: Next.js 16 web interface
 - React 19 frontend with Shadcn UI components (wrapped Radix UI) and Tailwind CSS
 - Modern web stack with TypeScript, ESLint, and Prettier with Tailwind plugin
 - Serves as the user interface for the LangGraph agent
+- Uses the app-router API layer in `apps/web/src/app/api/[..._path]/route.ts` to proxy LangGraph requests and `apps/web/src/app/api/restart-run/route.ts` to rebuild sessions after failures.
+- GitHub auth and cookie handling live in `apps/web/src/lib/auth.ts`; GitHub API proxy helpers live in `apps/web/src/utils/github.ts` and `apps/web/src/app/api/github/proxy/[..._path]/route.ts`.
+- Runtime config depends on `NEXT_PUBLIC_API_URL`, `LANGGRAPH_API_URL`, and `SECRETS_ENCRYPTION_KEY`.
 
 **apps/cli**: Ink-based terminal interface
 - React + Ink CLI for local codebase chat and real-time streaming logs
 - Works directly on a local git repository without GitHub authentication
+- Entry point is `apps/cli/src/index.tsx`; streaming behavior lives in `apps/cli/src/streaming.ts`, replay support lives in `apps/cli/src/trace_replay.ts`, and session helpers live in `apps/cli/src/utils.ts`.
+- Local mode is always enabled by `OPEN_SWE_LOCAL_MODE`, and the CLI reads `OPEN_SWE_LOCAL_PROJECT_PATH` plus `OPEN_SWE_V2_GRAPH_ID` when starting or replaying sessions.
 
 **apps/docs**: Documentation site
 - Mint-powered docs site for setup and usage guides
