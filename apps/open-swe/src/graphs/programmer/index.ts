@@ -24,8 +24,11 @@ import { getActivePlanItems } from "@openswe/shared/open-swe/tasks";
 import { createMarkTaskCompletedToolFields } from "@openswe/shared/open-swe/tools";
 import type { NodeName } from "@openswe/shared/telemetry";
 import { collectors, timed } from "../../utils/telemetry-wrapper.js";
+import {
+  shouldTerminate,
+  shouldDegrade,
+} from "../../utils/budget-tracker.js";
 
-void collectors;
 
 function lastMessagesMissingToolCalls(
   messages: BaseMessage[],
@@ -57,6 +60,17 @@ function routeGeneratedAction(
   | "handle-completed-task"
   | Send {
   const { internalMessages } = state;
+
+  if (state.budgetState) {
+    const termination = shouldTerminate(state.budgetState);
+    if (termination.terminate) {
+      return "route-to-review-or-conclusion";
+    }
+    if (shouldDegrade(state.budgetState)) {
+      return "route-to-review-or-conclusion";
+    }
+  }
+
   const lastMessage = internalMessages[internalMessages.length - 1];
 
   // If the message is an AI message, and it has tool calls, we should take action.

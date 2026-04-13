@@ -46,6 +46,11 @@ import {
 import { createViewTool } from "../../../../tools/builtin-tools/view.js";
 import { shouldCreateIssue } from "../../../../utils/should-create-issue.js";
 import { shouldUseCustomFramework } from "../../../../utils/should-use-custom-framework.js";
+import {
+  getOrInitBudgetState,
+  recordTokenUsage,
+  recordAction,
+} from "../../../../utils/budget-tracker.js";
 
 const logger = createLogger(LogLevel.INFO, "GeneratePlanningMessageNode");
 
@@ -186,9 +191,18 @@ export async function generateAction(
     })),
   });
 
+  let budgetState = getOrInitBudgetState(state.budgetState, config);
+  budgetState = recordAction(budgetState, "planner-generate-action");
+  budgetState = recordTokenUsage(
+    budgetState,
+    response,
+    "planner-generate-action",
+  );
+
   return {
     messages: [...missingMessages, response],
     ...(latestTaskPlan && { taskPlan: latestTaskPlan }),
     tokenData: trackCachePerformance(response, modelName),
+    budgetState,
   };
 }
