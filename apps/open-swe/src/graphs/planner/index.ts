@@ -16,6 +16,10 @@ import {
 import { isAIMessage } from "@langchain/core/messages";
 import { initializeSandbox } from "../shared/initialize-sandbox.js";
 import { diagnoseError } from "../shared/diagnose-error.js";
+import type { NodeName } from "@openswe/shared/telemetry";
+import { collectors, timed } from "../../utils/telemetry-wrapper.js";
+
+void collectors;
 
 function takeActionOrGeneratePlan(
   state: PlannerGraphState,
@@ -31,23 +35,45 @@ function takeActionOrGeneratePlan(
 }
 
 const workflow = new StateGraph(PlannerGraphStateObj, GraphConfiguration)
-  .addNode("prepare-graph-state", prepareGraphState, {
-    ends: [END, "initialize-sandbox"],
-  })
-  .addNode("initialize-sandbox", initializeSandbox)
-  .addNode("generate-plan-context-action", generateAction)
-  .addNode("take-plan-actions", takeActions, {
-    ends: ["generate-plan-context-action", "diagnose-error", "generate-plan"],
-  })
-  .addNode("generate-plan", generatePlan)
-  .addNode("notetaker", notetaker)
-  .addNode("interrupt-proposed-plan", interruptProposedPlan, {
-    ends: [END, "determine-needs-context"],
-  })
-  .addNode("determine-needs-context", determineNeedsContext, {
-    ends: ["generate-plan-context-action", "generate-plan"],
-  })
-  .addNode("diagnose-error", diagnoseError)
+  .addNode(
+    "prepare-graph-state",
+    timed("prepare-graph-state" as NodeName, prepareGraphState),
+    {
+      ends: [END, "initialize-sandbox"],
+    },
+  )
+  .addNode(
+    "initialize-sandbox",
+    timed("initialize-sandbox" as NodeName, initializeSandbox),
+  )
+  .addNode(
+    "generate-plan-context-action",
+    timed("generate-plan-context-action" as NodeName, generateAction),
+  )
+  .addNode(
+    "take-plan-actions",
+    timed("take-plan-actions" as NodeName, takeActions),
+    {
+      ends: ["generate-plan-context-action", "diagnose-error", "generate-plan"],
+    },
+  )
+  .addNode("generate-plan", timed("generate-plan" as NodeName, generatePlan))
+  .addNode("notetaker", timed("notetaker" as NodeName, notetaker))
+  .addNode(
+    "interrupt-proposed-plan",
+    timed("interrupt-proposed-plan" as NodeName, interruptProposedPlan),
+    {
+      ends: [END, "determine-needs-context"],
+    },
+  )
+  .addNode(
+    "determine-needs-context",
+    timed("determine-needs-context" as NodeName, determineNeedsContext),
+    {
+      ends: ["generate-plan-context-action", "generate-plan"],
+    },
+  )
+  .addNode("diagnose-error", timed("diagnose-error" as NodeName, diagnoseError))
   .addEdge(START, "prepare-graph-state")
   .addEdge("initialize-sandbox", "generate-plan-context-action")
   .addConditionalEdges(

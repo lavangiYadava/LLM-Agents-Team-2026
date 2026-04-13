@@ -7,14 +7,28 @@ import {
   startPlanner,
   createNewSession,
 } from "./nodes/index.js";
+import type { NodeName } from "@openswe/shared/telemetry";
+import { collectors, timed } from "../../utils/telemetry-wrapper.js";
+
+void collectors;
 
 const workflow = new StateGraph(ManagerGraphStateObj, GraphConfiguration)
-  .addNode("initialize-github-issue", initializeGithubIssue)
-  .addNode("classify-message", classifyMessage, {
-    ends: [END, "start-planner", "create-new-session"],
-  })
-  .addNode("create-new-session", createNewSession)
-  .addNode("start-planner", startPlanner)
+  .addNode(
+    "initialize-github-issue",
+    timed("initialize-github-issue" as NodeName, initializeGithubIssue),
+  )
+  .addNode(
+    "classify-message",
+    timed("classify-message" as NodeName, classifyMessage),
+    {
+      ends: [END, "start-planner", "create-new-session"],
+    },
+  )
+  .addNode(
+    "create-new-session",
+    timed("create-new-session" as NodeName, createNewSession),
+  )
+  .addNode("start-planner", timed("start-planner" as NodeName, startPlanner))
   .addEdge(START, "initialize-github-issue")
   .addEdge("initialize-github-issue", "classify-message")
   .addEdge("create-new-session", END)

@@ -12,6 +12,10 @@ import {
 } from "./nodes/index.js";
 import { isAIMessage } from "@langchain/core/messages";
 import { diagnoseError } from "../shared/diagnose-error.js";
+import type { NodeName } from "@openswe/shared/telemetry";
+import { collectors, timed } from "../../utils/telemetry-wrapper.js";
+
+void collectors;
 
 function takeReviewActionsOrFinalReview(
   state: ReviewerGraphState,
@@ -28,17 +32,30 @@ function takeReviewActionsOrFinalReview(
 }
 
 const workflow = new StateGraph(ReviewerGraphStateObj, GraphConfiguration)
-  .addNode("initialize-state", initializeState)
-  .addNode("generate-review-actions", generateReviewActions)
-  .addNode("take-review-actions", takeReviewerActions, {
-    ends: [
-      "generate-review-actions",
-      "diagnose-reviewer-error",
-      "final-review",
-    ],
-  })
-  .addNode("diagnose-reviewer-error", diagnoseError)
-  .addNode("final-review", finalReview)
+  .addNode(
+    "initialize-state",
+    timed("initialize-state" as NodeName, initializeState),
+  )
+  .addNode(
+    "generate-review-actions",
+    timed("generate-review-actions" as NodeName, generateReviewActions),
+  )
+  .addNode(
+    "take-review-actions",
+    timed("take-review-actions" as NodeName, takeReviewerActions),
+    {
+      ends: [
+        "generate-review-actions",
+        "diagnose-reviewer-error",
+        "final-review",
+      ],
+    },
+  )
+  .addNode(
+    "diagnose-reviewer-error",
+    timed("diagnose-reviewer-error" as NodeName, diagnoseError),
+  )
+  .addNode("final-review", timed("final-review" as NodeName, finalReview))
   .addEdge(START, "initialize-state")
   .addEdge("initialize-state", "generate-review-actions")
   .addConditionalEdges(
