@@ -50,3 +50,56 @@ with no real API calls.
 - A single node invocation produces exactly one record in `RunSummary`
 - Token counts, tool events, `modelId`, `outputSnapshot`, and `runId`
   all propagate correctly from the fake node response to the summary
+
+## Failure Handling
+
+Covers the policy-driven recovery layer in `apps/open-swe/src/runtime/failure/`, including typed failure classification, recovery dispatch, checkpointing, and Manager integration.
+
+### `apps/open-swe/src/__tests__/failure/policies/*.test.ts`
+Unit tests for each recovery policy, one file per failure type.
+
+- API timeout: retries with exponential backoff, downgrades tier on repeated failures, hard-stops after retry budget is exhausted
+- Budget exhausted: checkpoints state, injects `degradationSignal`, returns graceful partial-stop outcome
+- Malformed output: sets `reflexionContext` on first attempt, hard-stops after the Reflexion retry limit
+- Quality degradation: upgrades model tier when budget allows, otherwise sets `qualityFlag`
+- Context overflow: upgrades to a higher-context tier when possible, otherwise checkpoints and hard-stops
+- Loop overextension: allows one more pass when budget allows, otherwise checkpoints and terminates gracefully
+- Model unavailable: falls through to the next tier immediately, hard-stops if no tier remains
+- Rate limiting: waits within the wall-clock budget, downgrades tier when wait is too long
+- Sandbox failure: attempts sandbox restart, marks the run `unsolvable` if restart fails
+- Tool integration error: switches to a backup tool when available, checkpoints and hard-stops otherwise
+- Authentication failure: always checkpoints and hard-stops with no retry
+- Network failure: retries within the remaining token-budget fraction, hard-stops when retry budget is exhausted
+
+### `apps/open-swe/src/__tests__/failure/handler-contracts.test.ts`
+Contract tests for `FailureHandler` dispatch behavior.
+
+- Exhaustiveness: every `FailureType` resolves to a registered policy
+- Shape: every dispatch returns a valid `RecoveryOutcome`
+- Safety: dispatch never throws for a typed failure
+- Invariants: hard-stop outcomes report `stateCheckpointed: true` and graceful outcomes preserve the expected flags
+
+### `apps/open-swe/src/__tests__/failure/manager-integration.test.ts`
+Integration tests for the Manager node’s failure wiring.
+
+- Proactive loop detection: `reviewerCycleCount >= 2` triggers `LoopOverextensionError` before core logic runs
+- Typed failures: `AgentFailureError` instances are dispatched directly to `FailureHandler`
+- Unknown failures: non-typed errors are wrapped into a safe fallback error before dispatch
+- Termination: unrecoverable outcomes return `{ terminated: true, terminationKind, terminationMessage }`
+- State passthrough: policy-injected fields like `degradationSignal`, `reflexionContext`, `activeToolOverride`, and `qualityFlag` are preserved in the returned state delta
+
+### `apps/open-swe/src/__tests__/failure/checkpoint.test.ts`
+Unit tests for checkpoint persistence.
+
+- Writes a `failureCheckpoint` record into `config.configurable`
+- Captures `checkpointedAt`, `nodeSnapshot`, `iterationCount`, and `tokenUsage`
+- Handles missing `configurable` without throwing
+- Supports repeated calls by overwriting with the latest snapshot
+
+### `apps/open-swe/src/__tests__/failure/invariants.test.ts`
+Cross-cutting invariant tests across all failure policies.
+
+- Hard termination always triggers checkpointing
+- `stateCheckpointed` matches whether `checkpointState` was actually called
+- `qualityFlagEmitted` always corresponds to a populated `state.qualityFlag`
+- Recovery flags stay consistent across graceful and hard-stop paths
