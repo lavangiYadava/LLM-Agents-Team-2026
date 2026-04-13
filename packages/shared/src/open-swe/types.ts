@@ -268,6 +268,73 @@ export const GraphAnnotation = MessagesZodState.extend({
       fn: (_state, update) => update,
     },
   }),
+  degradationSignal: withLangGraph(z.custom<string>().optional(), {
+    reducer: {
+      schema: z.custom<string>().optional(),
+      fn: (_state, update) => update,
+    },
+  }),
+  reflexionContext: withLangGraph(z.custom<string>().optional(), {
+    reducer: {
+      schema: z.custom<string>().optional(),
+      fn: (_state, update) => update,
+    },
+  }),
+  activeToolOverride: withLangGraph(z.custom<string>().optional(), {
+    reducer: {
+      schema: z.custom<string>().optional(),
+      fn: (_state, update) => update,
+    },
+  }),
+  qualityFlag: withLangGraph(
+    z
+      .object({
+        reason: z.string(),
+        emittedAt: z.string(),
+      })
+      .optional(),
+    {
+      reducer: {
+        schema: z
+          .object({
+            reason: z.string(),
+            emittedAt: z.string(),
+          })
+          .optional(),
+        fn: (_state, update) => update,
+      },
+    },
+  ),
+  terminated: withLangGraph(z.custom<boolean>().optional(), {
+    reducer: {
+      schema: z.custom<boolean>().optional(),
+      fn: (_state, update) => update,
+    },
+  }),
+  terminationKind: withLangGraph(z.enum(["graceful", "hard"]).optional(), {
+    reducer: {
+      schema: z.enum(["graceful", "hard"]).optional(),
+      fn: (_state, update) => update,
+    },
+  }),
+  terminationMessage: withLangGraph(z.custom<string>().optional(), {
+    reducer: {
+      schema: z.custom<string>().optional(),
+      fn: (_state, update) => update,
+    },
+  }),
+  reviewerCycleCount: withLangGraph(z.custom<number>().optional(), {
+    reducer: {
+      schema: z.custom<number>().optional(),
+      fn: (_state, update) => update,
+    },
+  }),
+  unsolvable: withLangGraph(z.custom<boolean>().optional(), {
+    reducer: {
+      schema: z.custom<boolean>().optional(),
+      fn: (_state, update) => update,
+    },
+  }),
   /**
    * The number of times the reviewer subgraph has been executed.
    */

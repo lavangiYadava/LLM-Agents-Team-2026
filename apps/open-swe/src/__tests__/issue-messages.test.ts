@@ -54,7 +54,9 @@ describe("extractIssueTitleAndContentFromMessage", () => {
 describe("formatContentForIssueBody", () => {
   it("wraps content in open-swe-issue-content tags", () => {
     const result = formatContentForIssueBody("hello");
-    expect(result).toBe(`${ISSUE_CONTENT_OPEN_TAG}hello${ISSUE_CONTENT_CLOSE_TAG}`);
+    expect(result).toBe(
+      `${ISSUE_CONTENT_OPEN_TAG}hello${ISSUE_CONTENT_CLOSE_TAG}`,
+    );
   });
 
   it("round-trips with extractIssueTitleAndContentFromMessage", () => {
@@ -109,7 +111,9 @@ describe("getUntrackedComments", () => {
     const comments = [makeComment(1, "First"), makeComment(2, "Second")];
     const result = getUntrackedComments([tracked], 100, comments);
     expect(result).toHaveLength(1);
-    expect((result[0] as HumanMessage).additional_kwargs?.githubIssueCommentId).toBe(2);
+    expect(
+      (result[0] as HumanMessage).additional_kwargs?.githubIssueCommentId,
+    ).toBe(2);
   });
 
   it("returns empty array when all comments are already tracked", () => {
