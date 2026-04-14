@@ -68,12 +68,13 @@ import {
   createReplyToReviewTool,
 } from "../../../../tools/reply-to-review-comment.js";
 import { shouldUseCustomFramework } from "../../../../utils/should-use-custom-framework.js";
-import { formatBudgetPromptInjection } from "@openswe/shared/open-swe/budget-enforcement";
+import { formatBudgetPromptInjectionWithRate } from "@openswe/shared/open-swe/budget-enforcement";
 import {
   getOrInitBudgetState,
   recordTokenUsage,
   recordAction,
 } from "../../../../utils/budget-tracker.js";
+import { getRateMetricsForThread } from "../../../../utils/budget-rate-bridge.js";
 
 const logger = createLogger(LogLevel.INFO, "GenerateMessageNode");
 
@@ -83,7 +84,15 @@ const formatDynamicContextPrompt = (state: GraphState, config: GraphConfig) => {
     .join("\n");
 
   const budgetState = getOrInitBudgetState(state.budgetState, config);
-  const budgetPrompt = formatBudgetPromptInjection(budgetState);
+  const remainingTokens = Math.max(
+    0,
+    budgetState.config.maxBudgetTokens - budgetState.usage.totalTokensUsed,
+  );
+  const threadId = config?.configurable?.thread_id;
+  const rate = getRateMetricsForThread(threadId, remainingTokens, {
+    windowSize: 5,
+  });
+  const budgetPrompt = formatBudgetPromptInjectionWithRate(budgetState, rate);
 
   return DYNAMIC_SYSTEM_PROMPT.replaceAll("{PLAN_PROMPT}", planString)
     .replaceAll(
