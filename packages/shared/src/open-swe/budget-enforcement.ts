@@ -8,6 +8,7 @@ import {
   DEFAULT_BUDGET_CONFIG,
   DEFAULT_BUDGET_USAGE,
 } from "./budget-types.js";
+import { formatRateSection, RateMetrics } from "./budget-rate.js";
 
 function getUtilization(used: number, max: number): number {
   if (max <= 0) return 0;
@@ -153,6 +154,57 @@ Runtime Budget Status: ${status}
 - Tokens: ${usage.totalTokensUsed}/${config.maxBudgetTokens} used (${tokenPct}%) — ${remainingTokens} remaining
 - Tool Calls: ${usage.totalToolCallsUsed}/${config.maxBudgetToolCalls} used (${toolCallPct}%) — ${remainingToolCalls} remaining
 - Actions: ${usage.totalActionsUsed}/${config.maxBudgetActions} used (${actionPct}%) — ${remainingActions} remaining${urgencyNote}
+</budget_awareness>`;
+}
+
+export function formatBudgetPromptInjectionWithRate(
+  state: BudgetState,
+  rate: RateMetrics | null,
+): string {
+  if (rate === null) {
+    return formatBudgetPromptInjection(state);
+  }
+
+  const { config, usage, status } = state;
+
+  const tokenPct = Math.round(
+    getUtilization(usage.totalTokensUsed, config.maxBudgetTokens) * 100,
+  );
+  const toolCallPct = Math.round(
+    getUtilization(usage.totalToolCallsUsed, config.maxBudgetToolCalls) * 100,
+  );
+  const actionPct = Math.round(
+    getUtilization(usage.totalActionsUsed, config.maxBudgetActions) * 100,
+  );
+
+  const remainingTokens = Math.max(
+    0,
+    config.maxBudgetTokens - usage.totalTokensUsed,
+  );
+  const remainingToolCalls = Math.max(
+    0,
+    config.maxBudgetToolCalls - usage.totalToolCallsUsed,
+  );
+  const remainingActions = Math.max(
+    0,
+    config.maxBudgetActions - usage.totalActionsUsed,
+  );
+
+  let urgencyNote = "";
+  if (status === BudgetStatus.DEGRADED) {
+    urgencyNote = `\n\nCRITICAL: Your budget is nearly exhausted. You MUST wrap up your work immediately. Prioritize completing the single most important remaining task and produce a best-effort output. Do NOT start new multi-step investigations. Prefer direct edits over exploratory searches.`;
+  } else if (status === BudgetStatus.WARNING) {
+    urgencyNote = `\n\nWARNING: Your budget is running low. Be strategic with remaining resources. Prefer concise, targeted actions over broad exploration. Consider completing the most critical tasks first.`;
+  }
+
+  const rateSection = formatRateSection(rate);
+
+  return `<budget_awareness>
+Runtime Budget Status: ${status}
+- Tokens: ${usage.totalTokensUsed}/${config.maxBudgetTokens} used (${tokenPct}%) — ${remainingTokens} remaining
+- Tool Calls: ${usage.totalToolCallsUsed}/${config.maxBudgetToolCalls} used (${toolCallPct}%) — ${remainingToolCalls} remaining
+- Actions: ${usage.totalActionsUsed}/${config.maxBudgetActions} used (${actionPct}%) — ${remainingActions} remaining
+${rateSection}${urgencyNote}
 </budget_awareness>`;
 }
 
