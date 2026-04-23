@@ -1,3 +1,4 @@
+import "@/lib/load-root-env";
 import { NextRequest, NextResponse } from "next/server";
 import { getInstallationToken } from "@openswe/shared/github/auth";
 import { GITHUB_INSTALLATION_ID_COOKIE } from "@openswe/shared/constants";

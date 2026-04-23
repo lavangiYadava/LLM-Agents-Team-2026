@@ -168,7 +168,9 @@ describe("handleApiTimeout", () => {
   it("hard stops and checkpoints when budget is exhausted regardless of attempt count", async () => {
     const state = makeState();
     const budget = makeBudgetState({
-      isExhausted: jest.fn().mockReturnValue(true),
+      isExhausted: jest
+        .fn()
+        .mockReturnValue(true) as jest.MockedFunction<BudgetState["isExhausted"]>,
     });
 
     const outcome = await handleApiTimeout(

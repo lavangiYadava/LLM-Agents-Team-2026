@@ -9,6 +9,7 @@
 - Import the logger from `apps/open-swe/src/utils/logger.ts` and use the exported `LogLevel` enum when creating a logger (e.g. `createLogger(LogLevel.INFO, "MyComponent")`).
 - Build the shared package first before other packages can consume it (yarn build from the root handles this automatically via turbo repo)
 - Follow existing code patterns and maintain consistency with the established architecture
+- This repository is deprecated and no longer actively maintained; prefer minimal, conservative changes aligned with existing patterns
 - Include as few inline comments as possible
 </general_rules>
 
@@ -27,7 +28,8 @@ This is a Yarn workspace monorepo with Turbo build orchestration containing thes
 
 **apps/open-swe-v2**: LangGraph agent V2 application
 - Alternative agent implementation with its own package and test tooling
-- Has its own `langgraph.json` (`apps/open-swe-v2/langgraph.json`) with a single `coding` graph (entry: `./src/agent.ts:agent`) and a dependency on the monorepo root.
+- Has its own `langgraph.json` (`apps/open-swe-v2/langgraph.json`) with a single `coding` graph (entry: `./src/agent.ts:agent`)
+- `apps/open-swe-v2` `yarn dev` currently runs `langgraphjs` with the root config (`../../langgraph.json`), not `apps/open-swe-v2/langgraph.json`
 
 **apps/web**: Next.js 16 web interface
 - React 19 frontend with Shadcn UI components (wrapped Radix UI) and Tailwind CSS
@@ -61,7 +63,7 @@ This is a Yarn workspace monorepo with Turbo build orchestration containing thes
 - Run `yarn install` from the repository root - this handles all workspace dependencies automatically
 
 **Development**:
-- Use `yarn dev` from the repository root to run `turbo dev` for local development across workspaces. The root `package.json` also exposes `yarn build`, `yarn test`, `yarn format`, and `yarn lint` which map to Turbo commands that operate across packages.
+- Use `yarn dev` from the repository root to run `turbo dev` for local development across workspaces. The root `package.json` also exposes `yarn build`, `yarn test`, `yarn format`, `yarn format:check`, `yarn lint`, `yarn lint:fix`, `yarn clean`, and `yarn turbo:command`, which map to Turbo commands that operate across packages.
 
 **Key Dependencies**:
 - LangChain ecosystem: @langchain/langgraph, @langchain/anthropic for agent functionality
@@ -80,12 +82,13 @@ This is a Yarn workspace monorepo with Turbo build orchestration containing thes
 
 **Test Types**:
 - Unit tests: *.test.ts files (e.g., take-action.test.ts in __tests__ directories)
-- Integration tests: *.int.test.ts files (e.g., sandbox.int.test.ts)
+- Integration tests: *.int.test.ts files (e.g., telemetry-integration.int.test.ts)
 
 **Running Tests**:
 - `yarn test` - Run unit tests across all packages
 - Use package-level `test:int` scripts in `apps/open-swe`, `packages/shared`, and `apps/open-swe-v2` when you need integration tests
 - Use package-level `test:single <file>` scripts from the package that defines them for focused test runs
+- In `apps/open-swe-v2`, `eval:single` currently references `ls.vitest.config.ts`, but that config file exists in `apps/open-swe` only
 
 **Test Configuration**:
 - 20-second timeout for longer-running tests

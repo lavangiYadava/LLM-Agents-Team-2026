@@ -194,7 +194,7 @@ export function ThreadView({
         setCustomPlannerNodeEvents((prev) => [...prev, event]);
       }
     },
-    fetchStateHistory: false,
+    fetchStateHistory: true,
   });
 
   const joinedPlannerRunId = useRef<string | undefined>(undefined);
@@ -220,7 +220,7 @@ export function ThreadView({
         setCustomProgrammerNodeEvents((prev) => [...prev, event]);
       }
     },
-    fetchStateHistory: false,
+    fetchStateHistory: true,
   });
 
   const joinedProgrammerRunId = useRef<string | undefined>(undefined);

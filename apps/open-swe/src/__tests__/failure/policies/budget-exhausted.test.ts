@@ -9,7 +9,10 @@ import {
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { BudgetExhaustedError } from "@openswe/shared/failure";
 import type { GraphState } from "@openswe/shared/open-swe/types";
-import type { BudgetState } from "../../../runtime/budget/types.js";
+import type {
+  BudgetRemaining,
+  BudgetState,
+} from "../../../runtime/budget/types.js";
 
 const checkpointStateMock = jest
   .fn<() => Promise<void>>()
@@ -119,7 +122,11 @@ describe("handleBudgetExhausted", () => {
     const budget = makeBudgetState({
       remaining: jest
         .fn()
-        .mockReturnValue({ tokens: 4200, toolCalls: 12, actions: 5 }),
+        .mockReturnValue({
+          tokens: 4200,
+          toolCalls: 12,
+          actions: 5,
+        }) as jest.MockedFunction<() => BudgetRemaining>,
     });
 
     await handleBudgetExhausted(
@@ -137,7 +144,11 @@ describe("handleBudgetExhausted", () => {
     const budget = makeBudgetState({
       remaining: jest
         .fn()
-        .mockReturnValue({ tokens: 4200, toolCalls: 12, actions: 5 }),
+        .mockReturnValue({
+          tokens: 4200,
+          toolCalls: 12,
+          actions: 5,
+        }) as jest.MockedFunction<() => BudgetRemaining>,
     });
 
     await handleBudgetExhausted(
