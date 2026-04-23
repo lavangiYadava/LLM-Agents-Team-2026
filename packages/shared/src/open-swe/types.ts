@@ -156,6 +156,33 @@ export type CustomRules = {
   pullRequestFormatting?: string;
 };
 
+export type TerminationReason =
+  | "success"
+  | "budget_exhausted"
+  | "max_iterations"
+  | "max_reviewer_cycles"
+  | "timeout"
+  | "hard_failure"
+  | "graceful_degradation";
+
+export interface FeasibilityResult {
+  estimated_tokens: number;
+  estimated_tool_calls: number;
+  feasible: boolean;
+  confidence: "low" | "medium" | "high";
+  warning?: string;
+}
+
+export interface LoopMetadata {
+  iteration_count: number;
+  programmer_iterations: number;
+  reviewer_cycles: number;
+  last_node: string | null;
+  termination_reason: TerminationReason | null;
+  wall_clock_start_ms: number;
+  feasibility_result: FeasibilityResult | null;
+}
+
 export const GraphAnnotation = MessagesZodState.extend({
   /**
    * The internal messages. These are the messages which are
@@ -363,6 +390,12 @@ export const GraphAnnotation = MessagesZodState.extend({
         if (!state) return update;
         return budgetStateReducer(state, update);
       },
+    },
+  }),
+  loop_metadata: withLangGraph(z.custom<LoopMetadata>().optional(), {
+    reducer: {
+      schema: z.custom<LoopMetadata>().optional(),
+      fn: (_state, update) => update,
     },
   }),
 });
