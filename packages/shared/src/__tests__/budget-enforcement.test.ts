@@ -12,9 +12,11 @@ import {
   checkBudget,
   updateBudgetUsage,
   formatBudgetPromptInjection,
+  formatBudgetPromptInjectionWithRate,
   createDefaultBudgetState,
   budgetStateReducer,
 } from "../open-swe/budget-enforcement.js";
+import type { RateMetrics } from "../open-swe/budget-rate.js";
 
 function makeBudgetState(
   overrides?: Partial<{
@@ -259,6 +261,96 @@ describe("formatBudgetPromptInjection", () => {
     const prompt = formatBudgetPromptInjection(state);
     expect(prompt).toContain("1500000 remaining");
     expect(prompt).toContain("150 remaining");
+  });
+});
+
+describe("formatBudgetPromptInjectionWithRate", () => {
+  function makeRateMetrics(overrides: Partial<RateMetrics> = {}): RateMetrics {
+    return {
+      windowSize: 5,
+      windowRequested: 5,
+      avgTokensPerStep: 4000,
+      avgToolCallsPerStep: 1.2,
+      avgWallClockMsPerStep: 2500,
+      estimatedStepsRemaining: 100,
+      trend: "stable",
+      trendDeltaPct: 2,
+      hasData: true,
+      ...overrides,
+    };
+  }
+
+  it("delegates to formatBudgetPromptInjection when rate is null", () => {
+    const state = makeBudgetState();
+    const withRate = formatBudgetPromptInjectionWithRate(state, null);
+    const baseline = formatBudgetPromptInjection(state);
+    expect(withRate).toBe(baseline);
+  });
+
+  it("includes Runtime Rate header when rate.hasData is true", () => {
+    const state = makeBudgetState();
+    const rate = makeRateMetrics();
+    const prompt = formatBudgetPromptInjectionWithRate(state, rate);
+    expect(prompt).toContain("Runtime Rate");
+    expect(prompt).toContain("Avg tokens/step: 4000");
+  });
+
+  it("includes cold-start line when rate.hasData is false", () => {
+    const state = makeBudgetState();
+    const rate = makeRateMetrics({
+      hasData: false,
+      windowSize: 0,
+      avgTokensPerStep: 0,
+      estimatedStepsRemaining: null,
+      trend: "insufficient_data",
+    });
+    const prompt = formatBudgetPromptInjectionWithRate(state, rate);
+    expect(prompt).toContain("Runtime Rate");
+    expect(prompt).toContain("no completed steps yet");
+  });
+
+  it("preserves existing budget bullet rows", () => {
+    const state = makeBudgetState({
+      usage: { totalTokensUsed: 500_000, totalToolCallsUsed: 50 },
+    });
+    const rate = makeRateMetrics();
+    const prompt = formatBudgetPromptInjectionWithRate(state, rate);
+    expect(prompt).toContain("1500000 remaining");
+    expect(prompt).toContain("150 remaining");
+  });
+
+  it("places rate block before urgency note", () => {
+    const state = makeBudgetState({
+      usage: {
+        totalTokensUsed: Math.ceil(
+          DEFAULT_BUDGET_CONFIG.maxBudgetTokens *
+            BUDGET_THRESHOLDS.warningThreshold,
+        ),
+      },
+      status: BudgetStatus.WARNING,
+    });
+    const rate = makeRateMetrics();
+    const prompt = formatBudgetPromptInjectionWithRate(state, rate);
+
+    const rateIndex = prompt.indexOf("Runtime Rate");
+    const warningIndex = prompt.indexOf("WARNING: Your budget");
+    expect(rateIndex).toBeGreaterThan(0);
+    expect(warningIndex).toBeGreaterThan(rateIndex);
+  });
+
+  it("includes estimated steps remaining when available", () => {
+    const state = makeBudgetState();
+    const rate = makeRateMetrics({ estimatedStepsRemaining: 42 });
+    const prompt = formatBudgetPromptInjectionWithRate(state, rate);
+    expect(prompt).toContain("~42");
+  });
+
+  it("wraps content inside <budget_awareness> tags", () => {
+    const state = makeBudgetState();
+    const rate = makeRateMetrics();
+    const prompt = formatBudgetPromptInjectionWithRate(state, rate);
+    expect(prompt.startsWith("<budget_awareness>")).toBe(true);
+    expect(prompt.endsWith("</budget_awareness>")).toBe(true);
   });
 });
 
