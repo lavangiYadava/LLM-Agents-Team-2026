@@ -11,6 +11,12 @@ export interface BudgetConfig {
   maxBudgetActions: number;
 }
 
+export interface BudgetRemaining {
+  tokens: number;
+  toolCalls: number;
+  actions: number;
+}
+
 export interface BudgetUsage {
   totalTokensUsed: number;
   totalToolCallsUsed: number;
@@ -18,10 +24,15 @@ export interface BudgetUsage {
 }
 
 export interface BudgetState {
+  tokenCount?: number;
+  toolCallCount?: number;
+  actionCount?: number;
+  startTime?: number;
   config: BudgetConfig;
   usage: BudgetUsage;
   status: BudgetStatus;
   lastUpdatedNode: string;
+  remaining?(): BudgetRemaining;
 }
 
 export interface BudgetCheckResult {
@@ -39,9 +50,9 @@ export const BUDGET_THRESHOLDS = {
 } as const;
 
 export const DEFAULT_BUDGET_CONFIG: BudgetConfig = {
-  maxBudgetTokens: 2_000_000,
+  maxBudgetTokens: 500_000,
   maxBudgetToolCalls: 200,
-  maxBudgetActions: 150,
+  maxBudgetActions: 100,
 };
 
 export const DEFAULT_BUDGET_USAGE: BudgetUsage = {

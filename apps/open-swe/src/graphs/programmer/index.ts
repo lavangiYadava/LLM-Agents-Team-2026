@@ -23,7 +23,7 @@ import { getRemainingPlanItems } from "../../utils/current-task.js";
 import { getActivePlanItems } from "@openswe/shared/open-swe/tasks";
 import { createMarkTaskCompletedToolFields } from "@openswe/shared/open-swe/tools";
 import type { NodeName } from "@openswe/shared/telemetry";
-import { collectors, timed } from "../../utils/telemetry-wrapper.js";
+import { timed } from "../../utils/telemetry-wrapper.js";
 import {
   shouldTerminate,
   shouldDegrade,

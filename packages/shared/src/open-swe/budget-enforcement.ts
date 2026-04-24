@@ -8,7 +8,7 @@ import {
   DEFAULT_BUDGET_CONFIG,
   DEFAULT_BUDGET_USAGE,
 } from "./budget-types.js";
-import { formatRateSection, RateMetrics } from "./budget-rate.js";
+import { calculateBurnRate, formatRateSection, RateMetrics } from "./budget-rate.js";
 
 function getUtilization(used: number, max: number): number {
   if (max <= 0) return 0;
@@ -111,6 +111,11 @@ export function updateBudgetUsage(
 
   return {
     ...state,
+    tokenCount: (state.tokenCount ?? state.usage.totalTokensUsed) + (delta.totalTokensUsed ?? 0),
+    toolCallCount:
+      (state.toolCallCount ?? state.usage.totalToolCallsUsed) +
+      (delta.totalToolCallsUsed ?? 0),
+    actionCount: (state.actionCount ?? state.usage.totalActionsUsed) + (delta.totalActionsUsed ?? 0),
     usage: updatedUsage,
     status: updatedStatus,
   };
@@ -158,14 +163,63 @@ Runtime Budget Status: ${status}
 }
 
 export function formatBudgetPromptInjectionWithRate(
-  state: BudgetState,
+  budgetState: BudgetState,
+  config: BudgetConfig,
+): string;
+export function formatBudgetPromptInjectionWithRate(
+  budgetState: BudgetState,
   rate: RateMetrics | null,
+): string;
+export function formatBudgetPromptInjectionWithRate(
+  budgetState: BudgetState,
+  configOrRate: BudgetConfig | RateMetrics | null,
 ): string {
-  if (rate === null) {
-    return formatBudgetPromptInjection(state);
+  if (
+    configOrRate !== null &&
+    "maxBudgetTokens" in configOrRate &&
+    "maxBudgetToolCalls" in configOrRate &&
+    "maxBudgetActions" in configOrRate
+  ) {
+    const config = configOrRate;
+    const usedTokens = budgetState.tokenCount ?? budgetState.usage.totalTokensUsed;
+    const usedToolCalls =
+      budgetState.toolCallCount ?? budgetState.usage.totalToolCallsUsed;
+    const usedActions = budgetState.actionCount ?? budgetState.usage.totalActionsUsed;
+    const status = calculateBudgetStatus(config, {
+      totalTokensUsed: usedTokens,
+      totalToolCallsUsed: usedToolCalls,
+      totalActionsUsed: usedActions,
+    });
+
+    const tokenPct = Math.round(getUtilization(usedTokens, config.maxBudgetTokens) * 100);
+    const toolCallPct = Math.round(
+      getUtilization(usedToolCalls, config.maxBudgetToolCalls) * 100,
+    );
+    const actionPct = Math.round(
+      getUtilization(usedActions, config.maxBudgetActions) * 100,
+    );
+
+    const remainingTokens = Math.max(0, config.maxBudgetTokens - usedTokens);
+    const remainingToolCalls = Math.max(0, config.maxBudgetToolCalls - usedToolCalls);
+    const remainingActions = Math.max(0, config.maxBudgetActions - usedActions);
+
+    const burnRate = calculateBurnRate(budgetState);
+
+    return `<budget_awareness>
+Runtime Budget Status: ${status}
+- Tokens: ${usedTokens}/${config.maxBudgetTokens} used (${tokenPct}%) - ${remainingTokens} remaining
+- Tool Calls: ${usedToolCalls}/${config.maxBudgetToolCalls} used (${toolCallPct}%) - ${remainingToolCalls} remaining
+- Actions: ${usedActions}/${config.maxBudgetActions} used (${actionPct}%) - ${remainingActions} remaining
+- Burn rate: ${burnRate.tokensPerMinute.toFixed(1)} tokens/min, ${burnRate.toolCallsPerMinute.toFixed(2)} tool calls/min, ${burnRate.actionsPerMinute.toFixed(2)} actions/min
+</budget_awareness>`;
   }
 
-  const { config, usage, status } = state;
+  const rate = configOrRate;
+  if (rate === null) {
+    return formatBudgetPromptInjection(budgetState);
+  }
+
+  const { config, usage, status } = budgetState;
 
   const tokenPct = Math.round(
     getUtilization(usage.totalTokensUsed, config.maxBudgetTokens) * 100,
@@ -211,11 +265,21 @@ ${rateSection}${urgencyNote}
 export function createDefaultBudgetState(
   configOverrides?: Partial<BudgetConfig>,
 ): BudgetState {
+  const config = { ...DEFAULT_BUDGET_CONFIG, ...configOverrides };
   return {
-    config: { ...DEFAULT_BUDGET_CONFIG, ...configOverrides },
+    tokenCount: 0,
+    toolCallCount: 0,
+    actionCount: 0,
+    startTime: Date.now(),
+    config,
     usage: { ...DEFAULT_BUDGET_USAGE },
     status: BudgetStatus.NORMAL,
     lastUpdatedNode: "",
+    remaining: () => ({
+      tokens: Math.max(0, config.maxBudgetTokens),
+      toolCalls: Math.max(0, config.maxBudgetToolCalls),
+      actions: Math.max(0, config.maxBudgetActions),
+    }),
   };
 }
 

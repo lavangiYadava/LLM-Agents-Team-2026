@@ -51,7 +51,7 @@ export default function ThreadPage({
     assistantId: MANAGER_GRAPH_ID,
     threadId: thread_id,
     reconnectOnMount: true,
-    fetchStateHistory: false,
+    fetchStateHistory: true,
   });
 
   const { threads, isLoading: threadsLoading } = useThreadsSWR({

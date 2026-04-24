@@ -1,4 +1,27 @@
 import type { NodeRecord } from "../telemetry/types.js";
+import type { BudgetState } from "./budget-types.js";
+
+export interface BurnRate {
+  elapsedMs: number;
+  tokensPerMinute: number;
+  toolCallsPerMinute: number;
+  actionsPerMinute: number;
+}
+
+export function calculateBurnRate(state: BudgetState): BurnRate {
+  const startTime = state.startTime ?? Date.now();
+  const elapsedMs = Math.max(1, Date.now() - startTime);
+  const elapsedMinutes = elapsedMs / 60000;
+  const tokens = state.tokenCount ?? state.usage.totalTokensUsed;
+  const toolCalls = state.toolCallCount ?? state.usage.totalToolCallsUsed;
+  const actions = state.actionCount ?? state.usage.totalActionsUsed;
+  return {
+    elapsedMs,
+    tokensPerMinute: tokens / elapsedMinutes,
+    toolCallsPerMinute: toolCalls / elapsedMinutes,
+    actionsPerMinute: actions / elapsedMinutes,
+  };
+}
 
 export interface RateMetrics {
   windowSize: number;

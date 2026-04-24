@@ -5,7 +5,7 @@ import {
 } from "@openswe/shared/constants";
 import { verifyGithubUser } from "@openswe/shared/github/verify-user";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const token = request.cookies.get(GITHUB_TOKEN_COOKIE)?.value;
   const installationId = request.cookies.get(
     GITHUB_INSTALLATION_ID_COOKIE,

@@ -41,5 +41,8 @@
     "cookie@~0.4.1": "0.7.2",
     "js-yaml@^3.13.1": "4.1.1"
   },
-  "packageManager": "yarn@3.5.1"
+  "packageManager": "yarn@3.5.1",
+  "dependencies": {
+    "smee-client": "^5.0.0"
+  }
 }
