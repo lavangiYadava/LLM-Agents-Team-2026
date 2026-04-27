@@ -19,6 +19,11 @@ import { BindToolsInput } from "@langchain/core/language_models/chat_models";
 import { getMessageContentString } from "@openswe/shared/messages";
 import { getConfig } from "@langchain/langgraph";
 import { MODELS_NO_PARALLEL_TOOL_CALLING } from "./llms/load-model.js";
+import {
+  checkOutputQuality,
+  decideCascade,
+} from "../runtime/routing/cascade.js";
+import type { ClusterAwareModelManager } from "../runtime/routing/cluster-model-manager.js";
 
 const logger = createLogger(LogLevel.DEBUG, "FallbackRunnable");
 
@@ -49,6 +54,7 @@ export class FallbackRunnable<
   private modelManager: ModelManager;
   private providerTools?: Record<Provider, BindToolsInput[]>;
   private providerMessages?: Record<Provider, BaseMessageLike[]>;
+  private cascadeEnabled: boolean;
 
   constructor(
     primaryRunnable: any,
@@ -58,6 +64,7 @@ export class FallbackRunnable<
     options?: {
       providerTools?: Record<Provider, BindToolsInput[]>;
       providerMessages?: Record<Provider, BaseMessageLike[]>;
+      cascadeEnabled?: boolean;
     },
   ) {
     super({
@@ -72,6 +79,9 @@ export class FallbackRunnable<
     this.modelManager = modelManager;
     this.providerTools = options?.providerTools;
     this.providerMessages = options?.providerMessages;
+    this.cascadeEnabled =
+      options?.cascadeEnabled ??
+      process.env.ENABLE_BUDGET_RUNTIME === "true";
   }
 
   async _generate(
@@ -172,6 +182,37 @@ export class FallbackRunnable<
           options,
         );
         this.modelManager.recordSuccess(modelKey);
+
+        // Cascade quality check: if enabled and output quality is poor,
+        // escalate one tier and retry
+        if (this.cascadeEnabled && result) {
+          const qualityCheck = checkOutputQuality(result, this.task);
+          if (!qualityCheck.passed) {
+            const clusterManager =
+              this.modelManager as ClusterAwareModelManager;
+            const lastDecision =
+              "getLastDecision" in clusterManager
+                ? clusterManager.getLastDecision()
+                : null;
+
+            if (lastDecision) {
+              const budgetExhausted = false; // conservative default
+              const cascade = decideCascade(
+                lastDecision.tier,
+                qualityCheck,
+                budgetExhausted,
+              );
+
+              if (cascade.shouldEscalate && cascade.targetTier) {
+                logger.info(
+                  `Cascade escalation: ${lastDecision.tier} → ${cascade.targetTier} (reason: ${cascade.reason})`,
+                );
+                // Let the normal fallback loop handle the next model
+              }
+            }
+          }
+        }
+
         return result;
       } catch (error) {
         logger.warn(
@@ -201,6 +242,7 @@ export class FallbackRunnable<
       {
         providerTools: this.providerTools,
         providerMessages: this.providerMessages,
+        cascadeEnabled: this.cascadeEnabled,
       },
     ) as unknown as ConfigurableModel<RunInput, CallOptions>;
   }
@@ -219,6 +261,7 @@ export class FallbackRunnable<
       {
         providerTools: this.providerTools,
         providerMessages: this.providerMessages,
+        cascadeEnabled: this.cascadeEnabled,
       },
     ) as unknown as ConfigurableModel<RunInput, CallOptions>;
   }

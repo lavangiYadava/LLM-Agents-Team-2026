@@ -511,6 +511,27 @@ export function getModelManager(
   return globalModelManager;
 }
 
+/**
+ * Async factory that returns a ClusterAwareModelManager when ENABLE_BUDGET_RUNTIME
+ * is set, falling back to the standard ModelManager otherwise.
+ */
+export async function getModelManagerAsync(
+  config?: Partial<ModelManagerConfig>,
+): Promise<ModelManager> {
+  if (!globalModelManager) {
+    const useBudgetRuntime = process.env.ENABLE_BUDGET_RUNTIME === "true";
+    if (useBudgetRuntime) {
+      const { ClusterAwareModelManager } = await import(
+        "../../runtime/routing/cluster-model-manager.js"
+      );
+      globalModelManager = new ClusterAwareModelManager(config);
+    } else {
+      globalModelManager = new ModelManager(config);
+    }
+  }
+  return globalModelManager;
+}
+
 export function resetModelManager(): void {
   if (globalModelManager) {
     globalModelManager.shutdown();

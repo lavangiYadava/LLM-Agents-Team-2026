@@ -537,6 +537,42 @@ export const GraphConfigurationMetadata: {
         "Maximum number of agent loop iterations (super-steps) allowed during execution.",
     },
   },
+  routingStrategy: {
+    x_open_swe_ui_config: {
+      type: "select",
+      default: "cluster-adaptive",
+      description:
+        "Model routing strategy. 'cluster-adaptive' classifies each query and picks the cheapest viable model. 'fixed-tier' uses a single tier for all calls. 'task-priority' always uses PREMIUM for PROGRAMMER calls.",
+      options: [
+        { label: "Cluster Adaptive", value: "cluster-adaptive" },
+        { label: "Fixed Tier", value: "fixed-tier" },
+        { label: "Task Priority", value: "task-priority" },
+      ],
+    },
+  },
+  fixedTier: {
+    x_open_swe_ui_config: {
+      type: "select",
+      default: "premium",
+      description:
+        "Which tier to use when routingStrategy is 'fixed-tier'.",
+      options: [
+        { label: "Premium", value: "premium" },
+        { label: "Standard", value: "standard" },
+        { label: "Economy", value: "economy" },
+      ],
+    },
+  },
+  enableCascade: {
+    x_open_swe_ui_config: {
+      type: "hidden",
+    },
+  },
+  degradationThresholds: {
+    x_open_swe_ui_config: {
+      type: "hidden",
+    },
+  },
   mcpServers: {
     x_open_swe_ui_config: {
       type: "json",
@@ -748,6 +784,38 @@ export const GraphConfiguration = z.object({
    */
   maxBudgetActions: withLangGraph(z.number().optional(), {
     metadata: GraphConfigurationMetadata.maxBudgetActions,
+  }),
+  /**
+   * Model routing strategy.
+   * - "cluster-adaptive" (default): classify each query, pick cheapest viable model, degrade as budget depletes
+   * - "fixed-tier": use a single tier for all calls
+   * - "task-priority": always PREMIUM for PROGRAMMER, cluster-route others
+   */
+  routingStrategy: withLangGraph(
+    z.enum(["cluster-adaptive", "fixed-tier", "task-priority"]).optional(),
+    { metadata: GraphConfigurationMetadata.routingStrategy },
+  ),
+  /**
+   * Which tier to use when routingStrategy is "fixed-tier".
+   * @default "premium"
+   */
+  fixedTier: withLangGraph(
+    z.enum(["premium", "standard", "economy"]).optional(),
+    { metadata: GraphConfigurationMetadata.fixedTier },
+  ),
+  /**
+   * Whether to enable cascade quality gate (auto-escalate tier on poor output).
+   * @default true
+   */
+  enableCascade: withLangGraph(z.boolean().optional(), {
+    metadata: GraphConfigurationMetadata.enableCascade,
+  }),
+  /**
+   * Budget utilization thresholds for tier degradation [warning, critical].
+   * @default [0.6, 0.85]
+   */
+  degradationThresholds: withLangGraph(z.array(z.number()).optional(), {
+    metadata: GraphConfigurationMetadata.degradationThresholds,
   }),
   /**
    * Whether or not to create an issue for this request.
